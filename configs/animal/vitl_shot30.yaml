@@ -1,6 +1,6 @@
 _BASE_: "../Base-RCNN-C4.yaml"
 DE:
-  CLASS_PROTOTYPES: "weights/initial/few-shot/prototypes/fs_coco14_base_train.vitl14.pkl,weights/initial/few-shot/prototypes/fs_coco_trainval_novel_10shot.vitl14.pkl"
+  CLASS_PROTOTYPES: "weights/initial/few-shot/prototypes/fs_coco14_base_train.vitl14.pkl,weights/initial/few-shot/prototypes/fs_coco_trainval_novel_30shot.vitl14.pkl"
   BG_PROTOTYPES: "weights/initial/background/background_prototypes.vitl14.pth"
   BG_CLS_LOSS_WEIGHT: 0.2
   TOPK: 10
@@ -10,7 +10,7 @@ MODEL:
   BACKBONE:
     NAME: "build_dino_v2_vit"
     TYPE: "large" # base, small
-  WEIGHTS: ""
+  WEIGHTS: "" 
   MASK_ON: False
   RPN:
     HEAD_NAME: StandardRPNHead
@@ -30,9 +30,9 @@ DATASETS:
   TRAIN: ("fs_coco14_base_train",)
   TEST: ("fs_coco_test_all",)
 TEST:
-  EVAL_PERIOD: 30000
+  EVAL_PERIOD: 5000
 SOLVER:
-  IMS_PER_BATCH: 8
+  IMS_PER_BATCH: 16
   BASE_LR: 0.002
   STEPS: (60000, 80000)
   MAX_ITER: 90000

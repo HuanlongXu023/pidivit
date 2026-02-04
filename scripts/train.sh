@@ -29,11 +29,18 @@ case $task in
     fsod)
     if [[ "$dataset" == "coco" ]]
     then
+        #--config-file configs/few-shot/vit${vit}_shot${shot}.yaml  \
+        # MODEL.WEIGHTS  weights/initial/few-shot/vit${vit}+rpn.pth \
+        #OUTPUT_DIR output/train/few-shot/shot-${shot}/vit${vit}/  $@
+        #----------------------------------------------------------------
+        #MODEL.WEIGHTS  /root/data1/xfr/CDFSOD/weights/trained/few-shot/vitl_0089999.pth \
+        #OUTPUT_DIR output/train/few-shot/shot-${shot}/ft-vit${vit}/  $@
+
         python3 tools/train_net.py --num-gpus $num_gpus  \
-            --config-file configs/few-shot/vit${vit}_shot${shot}.yaml  \
-            MODEL.WEIGHTS  weights/initial/few-shot/vit${vit}+rpn.pth \
+            --config-file configs/few-shot/ft_vit${vit}_shot${shot}.yaml  \
+            MODEL.WEIGHTS  /root/data1/xfr/CDFSOD/weights/trained/few-shot/vitl_0089999.pth \
             DE.OFFLINE_RPN_CONFIG configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml \
-            OUTPUT_DIR output/train/few-shot/shot-${shot}/vit${vit}/  $@
+            OUTPUT_DIR output/train/few-shot/shot-${shot}/ft-vit${vit}/  $@
     else
         python3 tools/train_net.py --num-gpus $num_gpus  \
             --config-file configs/few-shot-voc/${shot}shot/vit${vit}_${split}s.yaml  \
@@ -42,13 +49,6 @@ case $task in
             OUTPUT_DIR output/train/few-shot-voc/${shot}shot/${split}/vit${vit}/  $@
     fi
     ;;
-
---num-gpus 1
---config-file configs/few-shot/vitl_shot10.yaml
-MODEL.WEIGHTS  weights/initial/few-shot/vitl+rpn.pth
-DE.OFFLINE_RPN_CONFIG configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
-OUTPUT_DIR output/train/few-shot/shot-10/vitl/
-
 
     osod)
         python3 tools/train_net.py \
@@ -63,3 +63,50 @@ OUTPUT_DIR output/train/few-shot/shot-10/vitl/
         echo "skip"
         ;;
 esac
+
+
+source /opt/miniconda3/etc/profile.d/conda.sh
+conda activate cdfsod-base
+cd /root/data1/xfr/CDFSOD
+python train_net.py --config-file configs/artaxor/vitl_shot10_artaxor_finetune-run.yaml MODEL.WEIGHTS /root/data1/xfr/CDFSOD-XFEW/weights/trained/few-shot/vitl_0089999.pth DE.OFFLINE_RPN_CONFIG configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml OUTPUT_DIR output/other/
+
+
+#--num-gpus 2
+#--config-file configs/few-shot/ft_vitl_shot10.yaml
+#MODEL.WEIGHTS  /root/data1/xfr/CDFSOD/weights/trained/few-shot/vitl_0089999.pth
+#DE.OFFLINE_RPN_CONFIG configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
+#OUTPUT_DIR output/train/few-shot/tiaoshi/
+#--num-gpus 1
+#--config-file configs/few-shot/vitl_shot10.yaml
+#MODEL.WEIGHTS  weights/initial/few-shot/vitl+rpn.pth
+#DE.OFFLINE_RPN_CONFIG configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
+#OUTPUT_DIR output/train/few-shot/shot-10/vitl/
+
+
+--num-gpus 1  \
+    --config-file configs/few-shot-voc/${shot}shot/vit${vit}_${split}s.yaml  \
+    MODEL.WEIGHTS  weights/initial/few-shot-voc/voc${split}/${vit}+rpn.pth \
+    DE.OFFLINE_RPN_CONFIG configs/VOC_RPN/faster_rcnn_R_50_C4.few_shot_s1.yaml \
+    OUTPUT_DIR output/train/few-shot-voc/${shot}shot/${split}/vit${vit}/  $@
+
+--num-gpus
+1
+--config-file
+configs/few-shot-voc/10shot/vitl_3s.yaml
+MODEL.WEIGHTS
+/root/data1/xfr/CDFSOD/weights/trained/few-shot/vitl_0089999.pth
+DE.OFFLINE_RPN_CONFIG
+configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
+OUTPUT_DIR
+output/train/few-shot/tiaoshi/
+
+
+
+
+
+
+
+
+
+
+

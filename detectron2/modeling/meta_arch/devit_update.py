@@ -663,7 +663,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             else:
                 class_weights = self.test_class_weight
         num_classes = len(class_weights)
-
+        # 使用离线rpn生成候选框
         with torch.no_grad():
             # with autocast(enabled=True):
             if self.offline_backbone.training or self.offline_proposal_generator.training:
@@ -714,12 +714,12 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
                         class_labels_i = torch.zeros_like(matched_idxs)
                     class_labels_i[matched_labels == 0] = num_classes
                     class_labels_i[matched_labels == -1] = -1
-
+                    # 采样正负样本
                     if self.training or self.evaluation_shortcut:
                         positive = ((class_labels_i != -1) & (class_labels_i != num_classes)).nonzero().flatten()
                         negative = (class_labels_i == num_classes).nonzero().flatten()
 
-                        batch_size_per_image = self.batch_size_per_image  # 512
+                        batch_size_per_image = self.batch_size_per_image  # 128
                         num_pos = int(batch_size_per_image * self.pos_ratio)
                         # protect against not enough positive examples
                         num_pos = min(positive.numel(), num_pos)
@@ -768,14 +768,14 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             boxes = proposals[0].proposal_boxes.tensor
             rois = torch.cat([torch.full((len(boxes), 1), fill_value=0).to(self.device),
                               boxes], dim=1)
-
+        # roi_features  tensor[512,1024,49]
         roi_features = self.roi_align(patch_tokens, rois)  # N, C, k, k
         roi_bs = len(roi_features)
 
-
+        # aug_rois 获得扩展的roi
         if self.training:
             class_labels = class_labels.long()
-            fg_indices = class_labels != num_classes
+            fg_indices = class_labels != num_classes   # 前景样本
             bg_indices = class_labels == num_classes
             matched_gt_boxes[bg_indices] = rois[bg_indices, 1:]  # nx4
             aug_rois, init_region, gt_region, _ = augment_rois(rois[:, 1:], matched_gt_boxes, img_h=H, img_w=W,
@@ -792,12 +792,12 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
         roi_features_origin = self.roi_align_77(patch_tokens, rois)
         roi_features = self.roi_align(patch_tokens, aug_rois)  # N, C, k, k
         roi_bs = len(roi_features)
-
+        # 提取roi特征
         # roi_features # N x emb x spatial
         roi_features_origin = roi_features_origin.flatten(2)
         roi_features = roi_features.flatten(2)
         bs, spatial_size = roi_features.shape[0], roi_features.shape[-1]
-
+        # 使用类别原型对特征进行投影
         roi_features = F.normalize(roi_features, dim=-1)
         class_weights_norm = F.normalize(class_weights, dim=-1)
         feats = roi_features.transpose(-2, -1) @ class_weights_norm.T
@@ -812,7 +812,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             if class_topk == 0:
                 class_topk = num_classes
             sample_class_enabled = True
-
+        # init_scores 计算出初始类别得分，并且选择top_k topk_class_indices
         if sample_class_enabled:
             num_active_classes = class_topk
             init_scores = F.normalize(roi_features.flatten(2).mean(2), dim=1) @ class_weights.T
@@ -823,7 +823,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
                 for i in range(roi_bs):
                     curr_label = class_labels[i].item()
                     topk_class_indices_i = topk_class_indices[i].cpu()
-                    if curr_label in topk_class_indices_i or curr_label == num_classes:
+                    if curr_label in topk_class_indices_i or curr_label == num_classes:  # 确保groud truth类别在所选类别当中
                         curr_indices = topk_class_indices_i
                     else:
                         curr_indices = torch.cat([torch.as_tensor([curr_label]),
@@ -836,7 +836,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             class_indices = torch.sort(class_indices, dim=1).values
         else:
             num_active_classes = num_classes
-
+        # 类别重排序 top_k 为每个类别构建独立子空间，重排序解决排列不变性问题
         # Class Shuffle
         other_classes = []
         indexes = torch.arange(0, num_classes, device=self.device)[None, None, :].repeat(bs, spatial_size, 1)
@@ -853,9 +853,9 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
         other_classes = interpolate(other_classes, self.T, mode='linear')  # (Nxclasses) x spatial x T
         other_classes = self.foreground_linears['other_classes'](other_classes)  # (Nxclasses) x spatial x emb
         other_classes = other_classes.permute(0, 2, 1)  # (Nxclasses) x emb x spatial
-        # (Nxclasses) x emb x S x S
+        # (Nxclasses) x emb x S x S     other_classes tensor[5020,64,49]
         inter_dist_emb = other_classes.reshape(bs * num_active_classes, -1, self.roialign_size, self.roialign_size)
-
+        # inter_dist_emb intra_dist_emb bg_dist_emb 计算三种距离嵌入式
         intra_feats = torch.gather(feats, 2, class_indices[:, None, :].repeat(1, spatial_size, 1))
         intra_dist_emb = distance_embed(intra_feats.flatten(0, 1),
                                         num_pos_feats=self.pos_emb_size)  # (Nxspatial) x class x emb TODO
@@ -877,7 +877,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
                                                                                                                    self.roialign_size,
                                                                                                                    self.roialign_size)
 
-        # (Nxclasses) x EMB x S x S
+        # 前景特征 = 类内距离 + 类间距离 + 背景距离 + 投影特征  (Nxclasses) x EMB x S x S
         fg_x = torch.cat([intra_dist_emb, inter_dist_emb, bg_dist_emb_c,
                           projected_feats[:, None, :, :, :].expand(-1, num_active_classes, -1, -1, -1).flatten(0, 1)],
                          dim=1)
@@ -891,34 +891,34 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
                                                                                                                    -1,
                                                                                                                    self.roialign_size,
                                                                                                                    self.roialign_size)
-
+        # 背景特征 = 类别距离 + 背景距离 + 投影特征
         bg_x = torch.cat([bg_cls_dist_emb, bg_dist_emb, projected_feats], dim=1)
-
+        # fg_output 是 box_coords 一张图片是128个proposal(经过正负采样)是[512 * 10,4] 10是num_active_classes  不直接回归目标框 通过区域传播和优化掩码来定位目标
         fg_output = self.rpropnet(fg_x, init_region[:, None, :, :].repeat(num_active_classes, 1, 1,
-                                                                          1))  # TODO: init_region needs repeat
+                   1))  #  背景检测TODO: init_region needs repeat
         bg_output = self.rpropnet_bg(bg_x, init_region[:, None, :, :])
-
+        # fg_output   list:3 tensor[output_region class_score box_coords]
         if self.training:
             logits = []
             gt_region = gt_region[fg_indices].float().flatten(1)
             gt_region_coords = gt_region_coords[fg_indices]
-            num_masks = fg_indices.sum()
+            num_masks = fg_indices.sum()  # 标记为前景的数量
             fg_indices_int = fg_indices.nonzero().flatten()
-            fg_class_indices_int = (class_labels[fg_indices][:, None] == class_indices[fg_indices]).nonzero()[:, 1]
+            fg_class_indices_int = (class_labels[fg_indices][:, None] == class_indices[fg_indices]).nonzero()[:, 1] # 找到GT类别在class_indices中的位置
             for layer_id, (fgo, bgo) in enumerate(zip(fg_output, bg_output)):
-                c, b = fgo['class_score'].reshape(bs, num_active_classes), bgo['class_score']
+                c, b = fgo['class_score'].reshape(bs, num_active_classes), bgo['class_score'] # 分类损失
                 logits.append(torch.cat([c, b], dim=1) / self.cls_temp)
 
                 pred_region_coords = fgo['box_coords'].reshape(bs, num_active_classes, 4)
                 pred_mask_logits = fgo['output_region'].reshape(bs, num_active_classes, self.roialign_size,
                                                                 self.roialign_size)
                 pred_region_coords = pred_region_coords[fg_indices_int, fg_class_indices_int]
-                pred_mask_logits = pred_mask_logits[fg_indices_int, fg_class_indices_int]
-
+                pred_mask_logits = pred_mask_logits[fg_indices_int, fg_class_indices_int] # [x,7,7]
+                # 区域分割损失
                 loss_dict[f"region_bce_loss_{layer_id}"] = sigmoid_ce_loss(pred_mask_logits.flatten(1), gt_region,
                                                                            num_masks)
                 loss_dict[f"region_dice_loss_{layer_id}"] = dice_loss(pred_mask_logits.flatten(1), gt_region, num_masks)
-                loss_dict[f'rg_l1_loss_{layer_id}'] = F.l1_loss(pred_region_coords, gt_region_coords)
+                loss_dict[f'rg_l1_loss_{layer_id}'] = F.l1_loss(pred_region_coords, gt_region_coords) # 区域分割损失
                 try:
                     loss_dict[f'rg_giou_loss_{layer_id}'] = (1 - torch.diag(generalized_box_iou(
                         box_cxcywh_to_xyxy(pred_region_coords),
@@ -931,7 +931,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             bg_logits = bg_output[-1]['class_score']
             logits = torch.cat([cls_logits, bg_logits], dim=1)
             logits = logits / self.cls_temp
-
+        # pred_abs_boxes  pred_region_coords( [5120,4] (c_w,c_h,w,h  rel) )
         aug_rois = aug_rois[:, None, :].repeat(1, num_active_classes, 1).flatten(0, 1)
         pred_region_coords = fg_output[-1]['box_coords']
         pred_abs_boxes = region_coord_2_abs_coord(aug_rois[:, 1:], pred_region_coords, self.roialign_size)
@@ -940,7 +940,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             fg_proposals = rois[fg_indices, 1:]  # nx4
             pred_abs_boxes = pred_abs_boxes.reshape(-1, num_active_classes, 4)
             pred_abs_boxes = pred_abs_boxes[fg_indices_int, fg_class_indices_int]
-
+            # red_abs_boxes tensor[61,4] 只取前景样本对应的预测 61是该batch中所有前景样本的总数
             fg_pred_deltas = self.box2box_transform.get_deltas(fg_proposals, pred_abs_boxes)
         else:
             pred_deltas = self.box2box_transform.get_deltas(
@@ -952,7 +952,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             class_labels = class_labels.long()
             bg_indices = class_labels == num_classes
             fg_indices = class_labels != num_classes
-
+            # 将原始类别ID映射到top-k类别的索引
             class_labels[fg_indices] = (class_indices == class_labels.view(-1, 1)).nonzero()[:, 1]
             class_labels[bg_indices] = num_active_classes
 

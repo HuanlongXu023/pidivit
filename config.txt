@@ -1,0 +1,53 @@
+--num-gpus
+2
+--eval-only
+--config-file
+configs/few-shot/ft_vitl_shot10.yaml
+MODEL.WEIGHTS
+/root/data1/xfr/CDFSOD/weights/trained/few-shot/vitl_0089999.pth
+DE.OFFLINE_RPN_CONFIG
+configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
+OUTPUT_DIR
+output/train/few-shot/tiaoshi/
+
+"weights/initial/few-shot-voc/prototypes/pascal_voc_train_split_3.vitl14.bbox.p10.sk.pkl,
+weights/initial/few-shot-voc/prototypes/voc_2007_trainval_novel3_10shot.vitl14.aug.bbox.p10.sk.pkl"
+
+"weights/initial/few-shot/prototypes/fs_coco14_base_train.vitl14.pkl,
+weights/initial/few-shot/prototypes/fs_coco_trainval_novel_10shot.vitl14.pkl"
+
+
+_PREDEFINED_SPLITS_FEWSHOT = {
+    "animal": {
+        "animal_base_train": ("voc_day/JPEGImages", "voc_day/base.json"),      # 48类
+        "animal_novel_10shot": ("voc_day/JPEGImages", "voc_day/finetune_10shot.json"),    # 17类
+        "animal_test_all": ("voc_day/JPEGImages", "voc_day/test_300shot.json"),           # 65类
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

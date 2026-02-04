@@ -60,7 +60,43 @@ _PREDEFINED_SPLITS_COCO["coco_ovd"] = {
     "fs_coco17_base_val": ("coco/val2017", "coco/annotations/fs_coco17_base_val.json"),   
 
     "fs_coco14_base_train": ("coco/train2014", "coco/annotations/fs_coco14_base_train.json"),
+    "fs_coco14_10shot_train": ("coco/val2014", "coco/coco14_10shot.json"),
+    "fs_coco14_30shot_train": ("coco/train2014", "coco/coco14_30shot.json"),
     "fs_coco14_base_val": ("coco/val2014", "coco/annotations/fs_coco14_base_val.json"),   
+    
+    "fsod1k_base": ("fsod", "fsod/annotations/fsod_train.json"),
+    "fsod1k_5shot": ("fsod", "fsod/annotations/fsod_5shot.json"),
+    "fsod1k_test": ("fsod", "fsod/annotations/fsod_5shot_test.json"),
+    "fsod1k_test_all": ("fsod", "fsod/annotations/fsod_test.json"),
+
+    "fsvod_base": ("FSVOD-500", "FSVOD-500/annotations/fsvod_train_clean.json"),
+    "fsvod_5shot": ("FSVOD-500", "FSVOD-500/annotations/offline_support_fsvod_test.json"),
+    "fsvod_test": ("FSVOD-500", "FSVOD-500/annotations/fsvod_test_clean.json"),
+
+    "voc_base1": ("", "vocsplit_json/voc_base1_trainval.json"),
+    "voc_base2": ("", "vocsplit_json/voc_base2_trainval.json"),
+    "voc_base3": ("", "vocsplit_json/voc_base3_trainval.json"),
+    "voc_test1": ("", "vocsplit_json/voc_test1.json"),
+    "voc_test2": ("", "vocsplit_json/voc_test2.json"),
+    "voc_test3": ("", "vocsplit_json/voc_test3.json"),
+    
+    "voc_split1_1": ("", "vocsplit_json/split1-1shot.json"),
+    "voc_split1_2": ("", "vocsplit_json/split1-2shot.json"),
+    "voc_split1_3": ("", "vocsplit_json/split1-3shot.json"),
+    "voc_split1_5": ("", "vocsplit_json/split1-5shot.json"),
+    "voc_split1_10": ("", "vocsplit_json/split1-10shot.json"),
+    
+    "voc_split2_1": ("", "vocsplit_json/split2-1shot.json"),
+    "voc_split2_2": ("", "vocsplit_json/split2-2shot.json"),
+    "voc_split2_3": ("", "vocsplit_json/split2-3shot.json"),
+    "voc_split2_5": ("", "vocsplit_json/split2-5shot.json"),
+    "voc_split2_10": ("", "vocsplit_json/split2-10shot.json"),
+    
+    "voc_split3_1": ("", "vocsplit_json/split3-1shot.json"),
+    "voc_split3_2": ("", "vocsplit_json/split3-2shot.json"),
+    "voc_split3_3": ("", "vocsplit_json/split3-3shot.json"),
+    "voc_split3_5": ("", "vocsplit_json/split3-5shot.json"),
+    "voc_split3_10": ("", "vocsplit_json/split3-10shot.json"),
 
     "coco_2017_novel_oneshot_s1_r50": ("coco/train2017", "coco/annotations/coco_2017_novel_oneshot_s1_r50.json"),   
     "coco_2017_novel_oneshot_s2_r50": ("coco/train2017", "coco/annotations/coco_2017_novel_oneshot_s2_r50.json"),   
@@ -135,6 +171,26 @@ _PREDEFINED_SPLITS_COCO_PANOPTIC = {
 }
 
 
+_PREDEFINED_SPLITS_FEWSHOT = {
+    "animal": {
+        "animal_base_train": ("voc_day/JPEGImages", "voc_day/base.json"),      # 48类
+        "animal_novel_10shot": ("voc_day/JPEGImages", "voc_day/finetune_10shot.json"),    # 17类
+        "animal_test_all": ("voc_day/JPEGImages", "voc_day/test_300shot.json"),           # 65类
+    }
+}
+
+# def register_all_fewshot(root):
+#     for dataset_name, splits_per_dataset in _PREDEFINED_SPLITS_FEWSHOT.items():
+#         if dataset_name == 'animal':  # 类似coco_ovd
+#             for key, (image_root, json_file) in splits_per_dataset.items():
+#                 register_coco_instances(
+#                     key,
+#                     {},  # 空元数据，从JSON读取
+#                     os.path.join(root, json_file),
+#                     os.path.join(root, image_root),
+#                 )
+
+
 def register_all_coco(root):
     for dataset_name, splits_per_dataset in _PREDEFINED_SPLITS_COCO.items():
         if dataset_name == 'coco_ovd':  # for zero-shot split
@@ -153,6 +209,16 @@ def register_all_coco(root):
                     key,
                     _get_builtin_metadata(dataset_name),
                     os.path.join(root, json_file) if "://" not in json_file else json_file,
+                    os.path.join(root, image_root),
+                )
+
+    for dataset_name, splits_per_dataset in _PREDEFINED_SPLITS_FEWSHOT.items():
+        if dataset_name == 'animal':  # 类似coco_ovd
+            for key, (image_root, json_file) in splits_per_dataset.items():
+                register_coco_instances(
+                    key,
+                    {},  # 空元数据，从JSON读取
+                    os.path.join(root, json_file),
                     os.path.join(root, image_root),
                 )
 
@@ -209,12 +275,14 @@ _PREDEFINED_SPLITS_LVIS = {
         "lvis_v1_val_fullysup": ("coco/", "lvis/lvis_v1_val.json"),
         "lvis_v1_test_dev_fullysup": ("coco/", "lvis/lvis_v1_image_info_test_dev.json"),
         "lvis_v1_test_challenge_fullysup": ("coco/", "lvis/lvis_v1_image_info_test_challenge.json"),
+        "lvis_v1_few": ("coco/", "lvis/lvis_shots_v1.json"),
     },
     "lvis_v0.5": {
         "lvis_v0.5_train": ("coco/", "lvis/lvis_v0.5_train.json"),
         "lvis_v0.5_val": ("coco/", "lvis/lvis_v0.5_val.json"),
         "lvis_v0.5_val_rand_100": ("coco/", "lvis/lvis_v0.5_val_rand_100.json"),
         "lvis_v0.5_test": ("coco/", "lvis/lvis_v0.5_image_info_test.json"),
+        "lvis_v0.5_few": ("coco/", "lvis/lvis_shots.json"),
     },
     "lvis_v0.5_cocofied": {
         "lvis_v0.5_train_cocofied": ("coco/", "lvis/lvis_v0.5_train_cocofied.json"),
