@@ -1,6 +1,6 @@
 _BASE_: "../Base-RCNN-C4.yaml"
 DE:
-  CLASS_PROTOTYPES: "/root/data1/xfr/PiDiViT/animal_base_train.vitl14.bbox.p10.sk.pkl,/root/data1/xfr/PiDiViT/animal_novel_10shot.vitl14.bbox.p10.sk.pkl"
+  CLASS_PROTOTYPES: "/root/data1/xfr/PiDiViT/animal_base_train.vitl14.bbox.p10.sk.pkl"
   BG_PROTOTYPES: "weights/initial/background/background_prototypes.vitl14.pth"
   BG_CLS_LOSS_WEIGHT: 0.2
   TOPK: 10

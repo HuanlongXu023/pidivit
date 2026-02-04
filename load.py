@@ -2,8 +2,8 @@ import torch
 import os
 
 # 文件路径
-# file_path = "/root/data1/xfr/PiDiViT/animal_base_train.vitl14.bbox.pkl"
-file_path = "/root/data1/xfr/PiDiViT/animal_base_train.vitl14.bbox.p10.sk.pkl"
+file_path = "/root/data1/xfr/PiDiViT/animal_novel_10shot.vitl14.bbox.p10.sk.pkl"
+#file_path = "/root/data1/xfr/PiDiViT/animal_base_train.vitl14.bbox.p10.sk.pkl"
 
 
 print("=" * 80)
