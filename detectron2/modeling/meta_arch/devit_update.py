@@ -480,7 +480,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
 
         self.roialign_size = roialign_size
         self.roi_align_77 = ROIAlign(7, 1 / backbone.patch_size, sampling_ratio=-1)
-        self.roi_align = ROIAlign(roialign_size, 1 / backbone.patch_size, sampling_ratio=-1)
+        self.roi_align = ROIAlign(roialign_size, 1 / backbone.patch_size, sampling_ratio=-1) # roi_align 7x7 patch_size 14 * 14
         # input: NCHW, Bx5, output BCKK
         self.box_noise_scale = box_noise_scale
         self.smooth_l1_beta = smooth_l1_beta
@@ -768,10 +768,10 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             boxes = proposals[0].proposal_boxes.tensor
             rois = torch.cat([torch.full((len(boxes), 1), fill_value=0).to(self.device),
                               boxes], dim=1)
-        # roi_features  tensor[512,1024,49]
+        # roi_features  tensor[512,1024,49] patch_tokens[8,1024,58,94] rois数量 1024
         roi_features = self.roi_align(patch_tokens, rois)  # N, C, k, k
         roi_bs = len(roi_features)
-
+        # roi_feature第一个维度应该是 proposal数量
         # aug_rois 获得扩展的roi
         if self.training:
             class_labels = class_labels.long()
@@ -819,6 +819,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             topk_class_indices = torch.topk(init_scores, class_topk, dim=1).indices
 
             if self.training:
+                invalid_indices_log = []  # 存储所有超出范围的索引信息
                 class_indices = []
                 for i in range(roi_bs):
                     curr_label = class_labels[i].item()
@@ -828,7 +829,43 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
                     else:
                         curr_indices = torch.cat([torch.as_tensor([curr_label]),
                                                   topk_class_indices_i[:-1]])
+                    # # 打印当前轮次的 curr_indices
+                    # print(f"[Sample {i}] curr_indices: {curr_indices.tolist()}")
+                    #
+                    # # 检查是否有超出 [0, num_classes-1] 范围的索引
+                    # out_of_range = curr_indices[(curr_indices < 0) | (curr_indices >= num_classes)]
+                    # # 自定义
+                    # if len(out_of_range) > 0:
+                    #     invalid_info = {
+                    #         'sample_idx': i,
+                    #         'curr_label': curr_label,
+                    #         'curr_indices': curr_indices.tolist(),
+                    #         'out_of_range_values': out_of_range.tolist(),
+                    #         'num_classes': num_classes,
+                    #         'topk_class_indices': topk_class_indices_i.tolist()
+                    #     }
+                    #     invalid_indices_log.append(invalid_info)
+                    #
+                    #     print(f"⚠️ [Sample {i}] FOUND OUT-OF-RANGE INDICES!")
+                    #     print(f"   curr_label: {curr_label}")
+                    #     print(f"   num_classes: {num_classes}")
+                    #     print(f"   out_of_range values: {out_of_range.tolist()}")
+                    #     print(f"   full curr_indices: {curr_indices.tolist()}")
+                    #     print(f"   topk_class_indices_i: {topk_class_indices_i.tolist()}")
                     class_indices.append(curr_indices)
+                # if len(invalid_indices_log) > 0:
+                #     print(f"\n{'=' * 60}")
+                #     print(f"SUMMARY: Found {len(invalid_indices_log)} samples with out-of-range indices")
+                #     print(f"Valid range: [0, {num_classes - 1}]")
+                #     print(f"{'=' * 60}")
+                #     for log in invalid_indices_log:
+                #         print(f"Sample {log['sample_idx']}:")
+                #         print(f"  - curr_label: {log['curr_label']}")
+                #         print(f"  - out_of_range: {log['out_of_range_values']}")
+                #         print(f"  - curr_indices: {log['curr_indices']}")
+                #     print(f"{'=' * 60}\n")
+                # else:
+                #     print(f"✓ All indices are within valid range [0, {num_classes - 1}]")
                 class_indices = torch.stack(class_indices).to(self.device)
             else:
                 class_indices = topk_class_indices
@@ -845,6 +882,10 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             _ = torch.gather(feats, 2,
                              indexes[cmask].view(bs, spatial_size, num_classes - 1))  # N x spatial x classes-1
             other_classes.append(_[:, :, None, :])
+        # cmask , indexes = tensor[1024,49,12]
+        # class_indices [1024,7]
+
+
 
         other_classes = torch.cat(other_classes, dim=2)  # N x spatial x classes x classes-1
         other_classes = other_classes.permute(0, 2, 1, 3)  # N x classes x spatial x classes-1
@@ -862,7 +903,7 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
         intra_dist_emb = self.foreground_linears['current_class'](intra_dist_emb)
         intra_dist_emb = intra_dist_emb.reshape(bs, spatial_size, num_active_classes, -1)
 
-        # (Nxclasses) x emb x S x S
+        # (Nxclasses) x emb x S x S 10240，64，7，7
         intra_dist_emb = intra_dist_emb.permute(0, 2, 3, 1).flatten(0, 1).reshape(bs * num_active_classes, -1,
                                                                                   self.roialign_size,
                                                                                   self.roialign_size)

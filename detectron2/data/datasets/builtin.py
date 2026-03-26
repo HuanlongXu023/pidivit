@@ -175,7 +175,7 @@ _PREDEFINED_SPLITS_FEWSHOT = {
     "animal": {
         "animal_base_train": ("voc_day/JPEGImages", "voc_day/base.json"),      # 48类
         "animal_novel_10shot": ("voc_day/JPEGImages", "voc_day/finetune_10shot.json"),    # 17类
-        "animal_test_all": ("voc_day/JPEGImages", "voc_day/test_300shot.json"),           # 65类
+        "animal_test_all": ("voc_day/JPEGImages", "voc_day/test.json"),           # 65类
     }
 }
 
