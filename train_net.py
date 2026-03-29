@@ -65,7 +65,6 @@ from sklearn.metrics import precision_recall_curve
 from sklearn import metrics as sk_metrics
 
 
-
 class Trainer(DefaultTrainer):
     """
     We use the "DefaultTrainer" which contains pre-defined default logic for

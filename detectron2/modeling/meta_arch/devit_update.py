@@ -48,10 +48,15 @@ from lib.regionprop_update import augment_rois, region_coord_2_abs_coord, abs_co
     RegionPropagationNetwork
 from lib.categories import SEEN_CLS_DICT, ALL_CLS_DICT
 
+# ------------------------------------------------------------------------------
+from lib.module_proto_refine import PrototypeRefiner
+from lib.module_sqf_module import SupportQueryFusionModule
+from lib.module_contrastive_head import (
+    ContrastiveHead,
+    iou_weighted_contrastive_loss_vectorized as iou_contrastive_loss,
+)
+# -------------------------------------------------------------------------------
 
-####################################################################
-# LOSS
-####################################################################
 
 
 def generalized_box_iou(boxes1, boxes2) -> torch.Tensor:
@@ -374,6 +379,14 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
                  mult_rpn_score=False,
                  use_one_shot=False,
                  one_shot_reference='',
+
+
+                 use_proto_refinement: bool = False,
+                 use_sqf: bool = False,
+                 use_contrastive: bool = False,
+                 contrastive_tau: float = 0.2,
+                 contrastive_weight: float = 0.5,
+                 proto_refine_gradient: bool = False,
                  ):
         super().__init__()
         if ',' in class_prototypes_file:
@@ -404,6 +417,41 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
                 self.offline_div_pixel = False
 
         self.proposal_matcher = proposal_matcher
+
+        # -----------------------------------------------------
+        self.use_proto_refinement = use_proto_refinement
+        self.use_sqf = use_sqf
+        self.use_contrastive = use_contrastive
+        self.contrastive_tau = contrastive_tau
+        self.contrastive_weight = contrastive_weight
+
+        if use_proto_refinement:
+            # 创新点1: 梯度归因图原型精化
+            # input_feat_dim 是 backbone 特征维度，与 roi_features 通道一致
+            self.proto_refiner = PrototypeRefiner(
+                feat_dim=input_feat_dim,
+                pool_size=roialign_size,
+                gradient_mode=proto_refine_gradient,
+            )
+
+        if use_sqf:
+            # 创新点2: 支持查询融合模块
+            # s=4 → 将 H×W 压缩到 4×4=16 个 token 做自注意力
+            self.sqf_module = SupportQueryFusionModule(
+                feat_dim=input_feat_dim,
+                s=4,
+                num_heads=8,
+            )
+
+        if use_contrastive:
+            # 创新点3: 对比学习头
+            # in_dim = input_feat_dim（ROI GAP 特征），proj_dim=128
+            self.contrastive_head = ContrastiveHead(
+                in_dim=input_feat_dim,
+                proj_dim=128,
+            )
+
+        # -----------------------------------------------------
 
         # class_prototypes_file
         #  prototypes, class_order_for_inference
@@ -682,6 +730,10 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
             output_key = sorted(list(all_patch_tokens.keys()), key=lambda x: int(x[3:]))[-1]
             patch_tokens = all_patch_tokens[output_key]
 
+        if self.use_sqf:
+            # class_weights 此时已经确定（train/test 分支均已赋值）
+            patch_tokens = self.sqf_module(patch_tokens, class_weights)
+
         if self.training or self.use_one_shot:
             with torch.no_grad():
                 gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
@@ -791,6 +843,63 @@ class OpenSetDetectorWithExamples_refactored(nn.Module):
 
         roi_features_origin = self.roi_align_77(patch_tokens, rois)
         roi_features = self.roi_align(patch_tokens, aug_rois)  # N, C, k, k
+
+        if self.use_proto_refinement and self.training:
+            _fg_mask_for_refine = (class_labels != num_classes) & (class_labels != -1)
+            if _fg_mask_for_refine.sum() > 0:
+                _roi_feats_4d = roi_features.reshape(
+                    roi_features.shape[0], -1,
+                    self.roialign_size, self.roialign_size
+                )   # [N, C, H, W]
+                _fg_roi = _roi_feats_4d[_fg_mask_for_refine]        # [Nfg, C, H, W]
+                _fg_lbl = class_labels[_fg_mask_for_refine]         # [Nfg]
+                # 精化 class_weights（返回新的 [Nc, C] 原型）
+                class_weights = self.proto_refiner(
+                    _fg_roi,
+                    class_weights,
+                    _fg_lbl,
+                    num_classes,
+                )
+
+        if self.use_contrastive:
+            # 使用 roi_features_origin（7×7 GAP → [N, C]）作为对比特征输入
+            # roi_features_origin 已经 flatten(2)：[N, C, 49]
+            _contra_feats = roi_features_origin.mean(dim=2)  # [N, C]  GAP
+
+            # 计算每个 proposal 与匹配 GT box 的 IoU（供加权使用）
+            # matched_gt_boxes: [Nall, 4]（包含 bg，bg 的 gt 被置为 proposal 自身）
+            # rois[:,1:]: [Nall, 4]
+            # 注意：这里用的是采样后的 rois，与 class_labels 对齐
+            from torchvision.ops.boxes import box_iou as _box_iou
+            _all_ious = torch.zeros(len(_contra_feats), device=self.device)
+            with torch.no_grad():
+                for _bid in range(bs):
+                    # 只取当前图片的 proposal
+                    _batch_mask = rois[:, 0] == _bid
+                    if _batch_mask.sum() == 0:
+                        continue
+                    _props = rois[_batch_mask, 1:]  # [Nb, 4]
+                    _gts = matched_gt_boxes[_batch_mask]  # [Nb, 4]
+                    # 对角线 IoU（每个 proposal 和其匹配的 GT）
+                    _iou_matrix = _box_iou(_props, _gts)  # [Nb, Nb]
+                    _diag_iou = torch.diagonal(_iou_matrix)  # [Nb]
+                    _all_ious[_batch_mask] = _diag_iou
+
+            _contra_labels = class_labels.clone()
+            # 背景标签统一为 num_classes（ContrastiveHead 内部过滤）
+            _bg_label = num_classes
+
+            _contrastive_loss = iou_contrastive_loss(
+                features=_contra_feats,
+                labels=_contra_labels,
+                ious=_all_ious,
+                contrastive_head=self.contrastive_head,
+                num_classes=num_classes,
+                tau=self.contrastive_tau,
+                bg_label=_bg_label,
+            )
+            loss_dict['contrastive_loss'] = self.contrastive_weight * _contrastive_loss
+
         roi_bs = len(roi_features)
         # 提取roi特征
         # roi_features # N x emb x spatial

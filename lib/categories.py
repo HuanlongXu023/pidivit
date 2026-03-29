@@ -1664,6 +1664,8 @@ SEEN_CLS_DICT = {
 
   'animal_base_train': animal_all_seen,
   'animal_novel_10shot': animal_all_seen,
+ 'animal_novel_5shot': animal_all_seen,
+ 'animal_novel_3shot': animal_all_seen,
   'animal_test_all': animal_all_seen,
 
  COCO_2017_SPLIT_1: get_oneshot_split(1),
@@ -1722,6 +1724,8 @@ ALL_CLS_DICT = {
   'animal_base_train': animal_all_seen,
   'animal_novel_10shot': animal_all_seen,
   'animal_test_all': animal_all_seen,
+  'animal_novel_3shot': animal_all_seen,
+  'animal_novel_5shot': animal_all_seen,
 
     COCO_2017_SPLIT_1: coco17_all_classes,
     COCO_2017_SPLIT_2: coco17_all_classes,

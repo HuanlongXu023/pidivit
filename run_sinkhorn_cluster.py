@@ -31,7 +31,7 @@ def accuracy_score(match):
 
 
 def main(inp, 
-        num_prototypes=10,
+        num_prototypes=3,
         token_type='pat', # pat, cls
         momentum=0.002, 
         epochs=30,

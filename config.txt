@@ -47,7 +47,7 @@ RuntimeError: shape '[1024, 49, 11]' is invalid for input of size 556885
 
 
 --num-gpus
-1
+2
 --config-file
 configs/animal/vitl_shot10.yaml
 MODEL.WEIGHTS
@@ -55,7 +55,7 @@ MODEL.WEIGHTS
 DE.OFFLINE_RPN_CONFIG
 configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
 OUTPUT_DIR
-output/train/few-shot/tiaoshi/
+output/train/night/
 
 --num-gpus
 2
@@ -82,6 +82,17 @@ output/train/few-shot/animal_novel_10shot/
 --num-gpus
 1
 --config-file
+configs/animal/ft_vitl_shot5.yaml
+MODEL.WEIGHTS
+/root/data1/xfr/PiDiViT/output/train/day/animal_base/model_final.pth
+DE.OFFLINE_RPN_CONFIG
+configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
+OUTPUT_DIR
+output/train/day/animal_5shot/
+
+--num-gpus
+1
+--config-file
 configs/few-shot/ft_vitl_shot10.yaml
 MODEL.WEIGHTS
 /root/data1/xfr/CDFSOD/weights/trained/few-shot/vitl_0089999.pth
@@ -90,6 +101,17 @@ configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
 OUTPUT_DIR
 output/train/few-shot/tiaoshi/
 
+
+--num-gpus
+1
+--config-file
+configs/animal/vitl_shot10.yaml
+MODEL.WEIGHTS
+/root/data1/xfr/CDFSOD/weights/initial/few-shot/vitl+rpn.pth
+DE.OFFLINE_RPN_CONFIG
+configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
+OUTPUT_DIR
+output/train/few-shot/animal_base/
 
 
 
