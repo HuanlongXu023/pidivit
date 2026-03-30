@@ -55,7 +55,7 @@ MODEL.WEIGHTS
 DE.OFFLINE_RPN_CONFIG
 configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
 OUTPUT_DIR
-output/train/night/
+output/train/night-1/
 
 --num-gpus
 2
@@ -73,11 +73,13 @@ output/train/few-shot/animal_base/
 --config-file
 configs/animal/ft_vitl_shot10.yaml
 MODEL.WEIGHTS
-/root/data1/xfr/PiDiViT/output/train/few-shot/animal_base/model_final.pth
+/root/data1/xfr/PiDiViT/output/train/night-1/model_final.pth
 DE.OFFLINE_RPN_CONFIG
 configs/RPN/mask_rcnn_R_50_C4_1x_ovd_FSD.yaml
 OUTPUT_DIR
-output/train/few-shot/animal_novel_10shot/
+output/train/night/10shot/
+
+/root/data1/xfr/PiDiViT/output/train/night/log.txt
 
 --num-gpus
 1

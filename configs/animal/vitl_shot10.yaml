@@ -30,7 +30,7 @@ DATASETS:
   TRAIN: ("animal_base_train",)
   TEST: ("animal_test_all",)
 TEST:
-  EVAL_PERIOD: 5000
+  EVAL_PERIOD: 2500
 SOLVER:
   IMS_PER_BATCH: 8
   BASE_LR: 0.001

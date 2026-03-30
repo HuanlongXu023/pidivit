@@ -1,6 +1,6 @@
 _BASE_: "../Base-RCNN-C4.yaml"
 DE:
-  CLASS_PROTOTYPES: "weights/initial/day/animal_base_train.vitl14.bbox.p10.sk.pkl,/root/data1/xfr/PiDiViT/weights/initial/day/animal_novel_10shot.vitl14.bbox.p10.sk.pkl"
+  CLASS_PROTOTYPES: "weights/initial/night/animal_base_train.vitl14.bbox.p10.sk.pkl,/root/data1/xfr/PiDiViT/weights/initial/night/animal_novel_10shot.vitl14.bbox.p10.sk.pkl"
   BG_PROTOTYPES: "weights/initial/background/background_prototypes.vitl14.pth"
   BG_CLS_LOSS_WEIGHT: 0.2
   TOPK: 8
@@ -30,14 +30,14 @@ DATASETS:
   TRAIN: ("animal_novel_10shot",)
   TEST: ("animal_test_all",)
 TEST:
-  EVAL_PERIOD: 1000
+  EVAL_PERIOD: 100
 SOLVER:
-  IMS_PER_BATCH: 8
+  IMS_PER_BATCH: 16
   BASE_LR: 0.001
-  STEPS: (100, )
-  MAX_ITER: 5000
+  STEPS: (250, 400)
+  MAX_ITER: 900
   WARMUP_ITERS: 100
-  CHECKPOINT_PERIOD: 1000
+  CHECKPOINT_PERIOD: 900
 
 
 INPUT:

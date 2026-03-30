@@ -1636,25 +1636,46 @@ animal_novel_seen = [
 ]
 
 # 所有类别都可见
+#animal_all_seen = [
+#    "Leopard",           # 0
+#    "AmurTiger",         # 1
+#    "Badger",            # 2
+#    "BlackBear",         # 3
+#    "Cow",               # 4
+#    "RaccoonDog",        # 5
+#    "Dog",               # 6
+#    "Hare",              # 7
+#    "LeopardCat",        # 8
+#    "MuskDeer",          # 9
+#    "RedFox",            # 10
+#    "RoeDeer",           # 11
+#    "Sable",             # 12
+#    "SikaDeer",          # 13
+#    "Weasel",            # 14
+#    "WildBoar",          # 15
+#    "Y.T.Marten",        # 16
+#]
+
 animal_all_seen = [
-    "Leopard",           # 0
-    "AmurTiger",         # 1
-    "Badger",            # 2
-    "BlackBear",         # 3
-    "Cow",               # 4
-    "RaccoonDog",        # 5
-    "Dog",               # 6
-    "Hare",              # 7
-    "LeopardCat",        # 8
-    "MuskDeer",          # 9
-    "RedFox",            # 10
-    "RoeDeer",           # 11
-    "Sable",             # 12
-    "SikaDeer",          # 13
-    "Weasel",            # 14
-    "WildBoar",          # 15
-    "Y.T.Marten",        # 16
+    "Leopard",      # 0
+    "AmurTiger",    # 1
+    "Badger",       # 2
+    "BlackBear",    # 3
+    "Cow",          # 4
+    "Dog",          # 5  ← 原来是 RaccoonDog，改为 Dog
+    "Hare",         # 6  ← 原来是 Dog，改为 Hare
+    "LeopardCat",   # 7  ← 原来是 Hare，改为 LeopardCat
+    "MuskDeer",     # 8  ← 原来是 LeopardCat，改为 MuskDeer
+    "RaccoonDog",   # 9  ← 原来是 MuskDeer，改为 RaccoonDog
+    "RedFox",       # 10
+    "RoeDeer",      # 11
+    "Sable",        # 12
+    "SikaDeer",     # 13
+    "Weasel",       # 14
+    "WildBoar",     # 15
+    "Y.T.Marten",   # 16
 ]
+
 
 SEEN_CLS_DICT = {
     COCO_OVD: COCO_SEEN_CLS,
